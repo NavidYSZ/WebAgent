@@ -174,9 +174,11 @@ try {
 
             if (function_exists('fastcgi_finish_request')) {
                 fastcgi_finish_request();
+                $delay_ms = (int) (getenv('AGENTOPS_WEB_SIM_DELAY_MS') ?: 350);
+                run_worker_once('web-trigger', $delay_ms, check_file_path());
+            } else {
+                spawn_worker_once('web-trigger');
             }
-            $delay_ms = (int) (getenv('AGENTOPS_WEB_SIM_DELAY_MS') ?: 350);
-            run_worker_once('web-trigger', $delay_ms, check_file_path());
             break;
 
         case 'job':
