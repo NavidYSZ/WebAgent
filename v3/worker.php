@@ -11,10 +11,15 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
+$once = in_array('--once', $argv, true);
+if (!$once) {
+    echo "Worker loop disabled on shared hosting. Use: php Web/v3/worker.php --once\n";
+    exit(0);
+}
+
 $worker_id = getenv('AGENTOPS_WEB_WORKER_ID') ?: ('worker-' . substr(md5((string) getmypid()), 0, 6));
 $poll_ms = (int) (getenv('AGENTOPS_WEB_POLL_MS') ?: 700);
 $delay_ms = (int) (getenv('AGENTOPS_WEB_SIM_DELAY_MS') ?: 350);
 $check_path = check_file_path();
-$once = in_array('--once', $argv, true);
 
-run_worker_loop($worker_id, $poll_ms, $delay_ms, $check_path, $once);
+run_worker_loop($worker_id, $poll_ms, $delay_ms, $check_path, true);
