@@ -1,0 +1,284 @@
+{
+    "job": {
+        "id": 2,
+        "title": "Test",
+        "request_text": "Bitte eine Hello World Datei in PHP erstellen und eine Textdatei mit dem Namen \"Test\"",
+        "payload": "{\"title\":\"Test\",\"request\":\"Bitte eine Hello World Datei in PHP erstellen und eine Textdatei mit dem Namen \\\"Test\\\"\",\"meta\":{\"repo_url\":\"/var/www/vhosts/ki-mitarbeiter24.de/deltarank.de/seo.deltarank.de/AgentOps/Versions/v3/workspaces/Test-5\",\"run_tests\":false}}",
+        "status": "running",
+        "created_at": "2025-12-25T22:12:58+00:00",
+        "started_at": "2025-12-25T22:12:58+00:00",
+        "finished_at": null,
+        "last_log_at": "2025-12-25T22:13:10+00:00",
+        "error_text": null
+    },
+    "payload": {
+        "title": "Test",
+        "request": "Bitte eine Hello World Datei in PHP erstellen und eine Textdatei mit dem Namen \"Test\"",
+        "meta": {
+            "repo_url": "/var/www/vhosts/ki-mitarbeiter24.de/deltarank.de/seo.deltarank.de/AgentOps/Versions/v3/workspaces/Test-5",
+            "run_tests": false
+        }
+    },
+    "plan": {
+        "steps": [
+            {
+                "scope": "repo",
+                "title": "Create task pack and set ACTIVE task scope",
+                "goal": "Define the task goal/plan for creating a PHP Hello World file and a text file, and register it in task tracking.",
+                "acceptance_criteria": [
+                    "/tasks/ACTIVE.md updated with current goal, scope, and plan reflecting the requested files.",
+                    "A new Task Pack (e.g., tasks/001_taskpack.md) exists detailing scope, plan, and verification commands.",
+                    "No contract files are modified."
+                ],
+                "in_scope": [
+                    "tasks/ACTIVE.md",
+                    "tasks/*_taskpack.md"
+                ],
+                "out_of_scope": [
+                    "contracts/*",
+                    "src/app code (no implementation yet)"
+                ],
+                "relevant_contracts": {
+                    "api": [],
+                    "db": [],
+                    "invariants": []
+                },
+                "verification": [
+                    "cat tasks/ACTIVE.md",
+                    "ls tasks | grep taskpack"
+                ],
+                "dependencies": [],
+                "contract_change_policy": "No contract changes expected; if later needed, update /contracts/* and record in ACTIVE.md Key Decisions.",
+                "constraints": [
+                    "Follow Work Protocol: update ACTIVE.md before implementation.",
+                    "Avoid modifying contract files."
+                ],
+                "file_allowlist": [
+                    "tasks/ACTIVE.md",
+                    "tasks/*_taskpack.md"
+                ],
+                "command_allowlist": [
+                    "cat tasks/ACTIVE.md",
+                    "ls tasks | grep taskpack"
+                ]
+            },
+            {
+                "scope": "repo",
+                "title": "Implement PHP Hello World and Test text file",
+                "goal": "Add a PHP file that outputs 'Hello World' and create a text file named 'Test'.",
+                "acceptance_criteria": [
+                    "A PHP file (hello.php) exists at the repo root and when executed prints 'Hello World'.",
+                    "A text file named 'Test' exists at the repo root with clear content (e.g., a short note).",
+                    "/tasks/ACTIVE.md reflects progress (e.g., updating In Progress/Next Steps) without altering contract impact sections incorrectly."
+                ],
+                "in_scope": [
+                    "hello.php",
+                    "Test",
+                    "tasks/ACTIVE.md"
+                ],
+                "out_of_scope": [
+                    "contracts/*",
+                    "docs/*"
+                ],
+                "relevant_contracts": {
+                    "api": [],
+                    "db": [],
+                    "invariants": []
+                },
+                "verification": [
+                    "php hello.php",
+                    "cat Test"
+                ],
+                "dependencies": [
+                    "Create task pack and set ACTIVE task scope"
+                ],
+                "contract_change_policy": "No contract changes; if any interface impact arises, halt and update contracts plus Key Decisions.",
+                "constraints": [
+                    "Keep implementation minimal and within scope.",
+                    "Do not modify contract files."
+                ],
+                "file_allowlist": [
+                    "hello.php",
+                    "Test",
+                    "tasks/ACTIVE.md"
+                ],
+                "command_allowlist": [
+                    "php hello.php",
+                    "cat Test"
+                ]
+            },
+            {
+                "scope": "repo",
+                "title": "Record result and close task",
+                "goal": "Document completion, verification outcomes, and finalize task tracking.",
+                "acceptance_criteria": [
+                    "A Result Pack (e.g., tasks/001_result.md) is created summarizing work done, verification commands, and outcomes.",
+                    "/tasks/ACTIVE.md updated to reflect completion (Done/Next Steps/Verification Results).",
+                    "No contract impact recorded unless changes actually occurred (should be none)."
+                ],
+                "in_scope": [
+                    "tasks/ACTIVE.md",
+                    "tasks/*_result.md"
+                ],
+                "out_of_scope": [
+                    "source files (no new code changes)"
+                ],
+                "relevant_contracts": {
+                    "api": [],
+                    "db": [],
+                    "invariants": []
+                },
+                "verification": [
+                    "cat tasks/ACTIVE.md",
+                    "cat tasks/*_result.md"
+                ],
+                "dependencies": [
+                    "Implement PHP Hello World and Test text file"
+                ],
+                "contract_change_policy": "No contract changes; ensure Contract Impacts section remains 'none' unless changed.",
+                "constraints": [
+                    "Follow Work Protocol for verification logging.",
+                    "Do not modify code files in this step."
+                ],
+                "file_allowlist": [
+                    "tasks/ACTIVE.md",
+                    "tasks/*_result.md"
+                ],
+                "command_allowlist": [
+                    "cat tasks/ACTIVE.md",
+                    "cat tasks/*_result.md"
+                ]
+            }
+        ],
+        "job_id": 2,
+        "generated_at": "2025-12-25T22:13:10+00:00"
+    },
+    "architecture": null,
+    "report": null,
+    "logs": {
+        "job": "[22:12:58] job queued\n[22:12:58] worker web-trigger claimed job\n[22:12:58] module-owner: repo root /var/www/vhosts/ki-mitarbeiter24.de/deltarank.de/seo.deltarank.de/AgentOps/Versions/v3/workspaces/Test-5\n[22:12:58] repo-memory: created docs/project.md, docs/architecture.md, contracts/api.yaml, contracts/db.sql, contracts/invariants.yaml, tasks/ACTIVE.md\n[22:12:58] orchestrator: generating plan\n[22:13:10] orchestrator: created 3 step(s)\n[22:13:10] task-pack: created tasks/job_2_step_1_taskpack.md, tasks/job_2_step_1_result.md\n[22:13:10] task-pack: created tasks/job_2_step_2_taskpack.md, tasks/job_2_step_2_result.md\n[22:13:10] task-pack: created tasks/job_2_step_3_taskpack.md, tasks/job_2_step_3_result.md\n[22:13:10] module-owner: step 1 (id 4) - Define the task goal/plan for creating a PHP Hello World file and a text file, and register it in task tracking.\n"
+    },
+    "steps": [
+        {
+            "step": {
+                "id": 4,
+                "job_id": 2,
+                "step_index": 1,
+                "goal": "Define the task goal/plan for creating a PHP Hello World file and a text file, and register it in task tracking.",
+                "acceptance_criteria": "[\"/tasks/ACTIVE.md updated with current goal, scope, and plan reflecting the requested files.\",\"A new Task Pack (e.g., tasks/001_taskpack.md) exists detailing scope, plan, and verification commands.\",\"No contract files are modified.\"]",
+                "scope": "repo",
+                "constraints": "[\"Follow Work Protocol: update ACTIVE.md before implementation.\",\"Avoid modifying contract files.\"]",
+                "file_allowlist": "[\"tasks/ACTIVE.md\",\"tasks/*_taskpack.md\"]",
+                "command_allowlist": "[\"cat tasks/ACTIVE.md\",\"ls tasks | grep taskpack\"]",
+                "status": "running",
+                "created_at": "2025-12-25T22:13:10+00:00",
+                "started_at": "2025-12-25T22:13:10+00:00",
+                "finished_at": null,
+                "report_path": null,
+                "error_text": null
+            },
+            "scope": "repo",
+            "acceptance_criteria": [
+                "/tasks/ACTIVE.md updated with current goal, scope, and plan reflecting the requested files.",
+                "A new Task Pack (e.g., tasks/001_taskpack.md) exists detailing scope, plan, and verification commands.",
+                "No contract files are modified."
+            ],
+            "constraints": [
+                "Follow Work Protocol: update ACTIVE.md before implementation.",
+                "Avoid modifying contract files."
+            ],
+            "file_allowlist": [
+                "tasks/ACTIVE.md",
+                "tasks/*_taskpack.md"
+            ],
+            "command_allowlist": [
+                "cat tasks/ACTIVE.md",
+                "ls tasks | grep taskpack"
+            ],
+            "report": null,
+            "log": "[22:13:10] module-owner: step 1 (id 4) - Define the task goal/plan for creating a PHP Hello World file and a text file, and register it in task tracking.\n",
+            "subtasks": []
+        },
+        {
+            "step": {
+                "id": 5,
+                "job_id": 2,
+                "step_index": 2,
+                "goal": "Add a PHP file that outputs 'Hello World' and create a text file named 'Test'.",
+                "acceptance_criteria": "[\"A PHP file (hello.php) exists at the repo root and when executed prints 'Hello World'.\",\"A text file named 'Test' exists at the repo root with clear content (e.g., a short note).\",\"/tasks/ACTIVE.md reflects progress (e.g., updating In Progress/Next Steps) without altering contract impact sections incorrectly.\"]",
+                "scope": "repo",
+                "constraints": "[\"Keep implementation minimal and within scope.\",\"Do not modify contract files.\"]",
+                "file_allowlist": "[\"hello.php\",\"Test\",\"tasks/ACTIVE.md\"]",
+                "command_allowlist": "[\"php hello.php\",\"cat Test\"]",
+                "status": "queued",
+                "created_at": "2025-12-25T22:13:10+00:00",
+                "started_at": null,
+                "finished_at": null,
+                "report_path": null,
+                "error_text": null
+            },
+            "scope": "repo",
+            "acceptance_criteria": [
+                "A PHP file (hello.php) exists at the repo root and when executed prints 'Hello World'.",
+                "A text file named 'Test' exists at the repo root with clear content (e.g., a short note).",
+                "/tasks/ACTIVE.md reflects progress (e.g., updating In Progress/Next Steps) without altering contract impact sections incorrectly."
+            ],
+            "constraints": [
+                "Keep implementation minimal and within scope.",
+                "Do not modify contract files."
+            ],
+            "file_allowlist": [
+                "hello.php",
+                "Test",
+                "tasks/ACTIVE.md"
+            ],
+            "command_allowlist": [
+                "php hello.php",
+                "cat Test"
+            ],
+            "report": null,
+            "log": "",
+            "subtasks": []
+        },
+        {
+            "step": {
+                "id": 6,
+                "job_id": 2,
+                "step_index": 3,
+                "goal": "Document completion, verification outcomes, and finalize task tracking.",
+                "acceptance_criteria": "[\"A Result Pack (e.g., tasks/001_result.md) is created summarizing work done, verification commands, and outcomes.\",\"/tasks/ACTIVE.md updated to reflect completion (Done/Next Steps/Verification Results).\",\"No contract impact recorded unless changes actually occurred (should be none).\"]",
+                "scope": "repo",
+                "constraints": "[\"Follow Work Protocol for verification logging.\",\"Do not modify code files in this step.\"]",
+                "file_allowlist": "[\"tasks/ACTIVE.md\",\"tasks/*_result.md\"]",
+                "command_allowlist": "[\"cat tasks/ACTIVE.md\",\"cat tasks/*_result.md\"]",
+                "status": "queued",
+                "created_at": "2025-12-25T22:13:10+00:00",
+                "started_at": null,
+                "finished_at": null,
+                "report_path": null,
+                "error_text": null
+            },
+            "scope": "repo",
+            "acceptance_criteria": [
+                "A Result Pack (e.g., tasks/001_result.md) is created summarizing work done, verification commands, and outcomes.",
+                "/tasks/ACTIVE.md updated to reflect completion (Done/Next Steps/Verification Results).",
+                "No contract impact recorded unless changes actually occurred (should be none)."
+            ],
+            "constraints": [
+                "Follow Work Protocol for verification logging.",
+                "Do not modify code files in this step."
+            ],
+            "file_allowlist": [
+                "tasks/ACTIVE.md",
+                "tasks/*_result.md"
+            ],
+            "command_allowlist": [
+                "cat tasks/ACTIVE.md",
+                "cat tasks/*_result.md"
+            ],
+            "report": null,
+            "log": "",
+            "subtasks": []
+        }
+    ]
+}

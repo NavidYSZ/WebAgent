@@ -1,0 +1,169 @@
+Hier ist die **abschließende Architektur**, die gleichzeitig **(a) zuverlässig funktioniert** und **(b) wirklich den Intent erfüllt**: AI-gestützte Entwicklung wird *planbar, delegierbar, überprüfbar* – auch für **mittlere bis mittelgroße Projekte**.
+
+---
+
+## Zielbild in einem Satz
+
+Du baust ein System, in dem **jede Arbeitseinheit** als **WorkOrder + Contracts + Tests** beschrieben ist, sodass **Worker ohne Gesamtkontext** trotzdem korrekt liefern – und der Orchestrator nur noch **plant, zerlegt, prüft, konsolidiert**.
+
+---
+
+## 1) Die 5 Bausteine (minimal, aber vollständig)
+
+### A) Source of Truth im Repo (für Kontext-Stabilität)
+
+**Alles Wichtige liegt als Dateien im Repo**, nicht “nur im Chat”:
+
+* `docs/module-registry.yaml` (Index aller Module)
+* `docs/modules/<module>.md` (Modul-Spezifikation: Input/Output/Errors/DoD)
+* `docs/contracts/*` (OpenAPI/JSON-Schema/Event-Schemas)
+* `docs/decisions/ADR-*.md` (bewusste Entscheidungen)
+
+👉 Ergebnis: Worker müssen nicht „raten“, wie etwas gedacht ist.
+
+---
+
+### B) WorkOrders als „Context Packs“ (delegierbar)
+
+Jeder Task wird **nicht** als “mach mal X” beschrieben, sondern als **ausführbares Paket**:
+
+* Ziel (1 Satz)
+* Scope/Constraints (was darf nicht verändert werden)
+* Links zu Modulspec/Contracts
+* **Files-Allowlist** + **Commands-Allowlist**
+* **Acceptance Criteria** (objektiv prüfbar: Tests/Schema-Validation)
+* Deliverables: Patch + Testlog + Digest
+
+👉 Ergebnis: Du kannst Aufgaben beliebig an Worker geben, ohne dass sie „den ganzen Film“ kennen müssen.
+
+---
+
+### C) Execution Layer (OpenHands / Codex / eigener Runner – egal)
+
+Die Ausführung passiert in einer isolierten Workspace-Umgebung:
+
+* Repo checkout (Branch pro Run)
+* Änderungen **diff-first**
+* Tests laufen lassen
+* Artefakte speichern
+
+👉 Der Tool-Wechsel (OpenHands Web, CLI, Codex, eigener Orchestrator) ändert **nicht** deine Prozesslogik, nur die “Execution Engine”.
+
+---
+
+### D) Artifact Store + Metadaten (einfach & update-sicher)
+
+**Hybrid Speicherung (empfohlen):**
+
+* **SQLite**: Projekte, Runs, Status, Links, Indizes (super simpel, eine Datei)
+* **Filesystem**: große Artefakte (diff/log/digest/adr), weil diffbar & agent-freundlich
+
+Ordneridee:
+
+* `data/app.sqlite`
+* `data/artifacts/<run>/<artifact>.(diff|log|json|md)`
+
+👉 Ergebnis: Keine MariaDB/Plesk-Hölle, keine “bei Update alles löschen”, trotzdem querybar.
+
+---
+
+### E) Gatekeeping (macht es verlässlich)
+
+Du brauchst 3 harte Gates, damit “AI macht Mist” nicht eskaliert:
+
+1. **Contracts Gate:** Schema/OpenAPI/Event-Contract muss validieren
+2. **Tests Gate:** unit/contract/integration (klein aber zwingend)
+3. **Review Gate:** Orchestrator akzeptiert nur, wenn Digest+Evidence plausibel sind
+
+👉 Ergebnis: Qualität steigt, Debug-Zeit sinkt.
+
+---
+
+## 2) Rollenmodell (damit mittlere Projekte wirklich skalieren)
+
+### Minimal: **2 Ebenen** (reicht in 90% der Fälle)
+
+* **Orchestrator (du oder „Brain“)**
+
+  * zerlegt Arbeit in WorkOrders
+  * priorisiert
+  * prüft Artefakte & integriert
+  * schreibt/aktualisiert ADRs/Registry
+* **Worker(s)**
+
+  * implementieren genau *eine* WorkOrder
+  * liefern Patch + Tests + Digest
+
+Das ist der Sweet Spot: maximal effizient, minimaler Koordinations-Overhead.
+
+### Optional: “Hierarchie” nur als Pattern (nicht als Dauerzustand)
+
+Wenn ein Task groß ist, macht der Orchestrator:
+
+* 1 Epic-WorkOrder → 3–8 kleine WorkOrders (pro Modul/Feature Slice)
+* Worker arbeiten parallel
+* Orchestrator konsolidiert
+
+Mehr als 2 Ebenen lohnt sich meist erst, wenn du wirklich **dauerhaft** parallelisiert + automatisiert (CI/PR-Flows, 20+ Runs/Woche).
+
+---
+
+## 3) Der Entwicklungsfluss (so wird’s effizient)
+
+1. **Planung**
+
+   * Update/Erstellung: `module-registry`, `module spec`, `contracts`
+2. **WorkOrder erzeugen**
+
+   * klein, testbar, mit allowlists + acceptance criteria
+3. **Run**
+
+   * Worker ändert Code, führt Tests aus, erzeugt Artefakte
+4. **Evidence Review**
+
+   * Orchestrator checkt: Patch + Testlog + Contract-Validation + Digest
+5. **Merge**
+
+   * Branch/PR rein
+6. **Wissens-Update**
+
+   * ADR/Specs aktualisieren, falls Interface/Entscheidung geändert wurde
+
+👉 Dieser Loop ist das, was mittlere Projekte „schnell und sauber“ macht: Nicht mehr „große Chat-Sessions“, sondern **kleine beweisbare Schritte**.
+
+---
+
+## 4) Warum das den Intent erfüllt (und nicht nur “Dokumentation” ist)
+
+### Worker ohne Gesamtkontext funktionieren, weil:
+
+* sie **nur** ein Modul/Slice bearbeiten
+* alle Inputs/Outputs **contracted** sind
+* Erfolg über Tests/Schema objektiv messbar ist
+
+### Mittlere Projekte funktionieren, weil:
+
+* Du nicht in “Monolith-Prompts” erstickst
+* Jede Änderung an Interfaces/Events/DB bewusst versioniert wird (ADR/Contracts)
+* Du parallelisieren kannst, ohne Chaos (WorkOrders + Gates)
+
+### AI wird wirklich effizienter, weil:
+
+* Kontext nicht dauernd neu “erzählt” werden muss (Specs + Registry)
+* Fehler früh sichtbar sind (Contracts/Tests statt spät im Review)
+* du Wiederholungen automatisierst (WorkOrder-Generator + Standard-DoD)
+
+---
+
+## 5) Minimaler Implementations-Scope (damit es schnell funktionsfähig ist)
+
+Wenn du es maximal pragmatisch willst, starte so:
+
+* **Files:** `docs/`, `work_orders/`, `contracts/`, `decisions/`
+* **Storage:** `data/app.sqlite` + `data/artifacts/`
+* **Gates:** 1 Contract-Test + 1 Integration-Test pro Modul (klein halten)
+* **Execution:** OpenHands/Codex wie gewohnt, aber **Output immer in Artefakte**
+
+Damit ist es **sofort funktionsfähig** und du kannst später den Orchestrator “automatisieren”, ohne den Prozess zu ändern.
+
+---
