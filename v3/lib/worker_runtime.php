@@ -57,6 +57,21 @@ function run_worker_once(string $worker_id, int $delay_ms, string $check_path): 
     }
 }
 
+function spawn_worker_once(string $worker_id): void
+{
+    $php = escapeshellarg(php_binary());
+    $worker = escapeshellarg(APP_ROOT . '/worker.php');
+    $env = 'AGENTOPS_WEB_WORKER_ID=' . escapeshellarg($worker_id);
+    $cmd = $env . ' ' . $php . ' ' . $worker . ' --once';
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        pclose(popen('start /B ' . $cmd, 'r'));
+        return;
+    }
+
+    exec($cmd . ' > /dev/null 2>&1 &');
+}
+
 function run_worker_loop(
     string $worker_id,
     int $poll_ms,

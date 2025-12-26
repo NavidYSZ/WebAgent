@@ -440,6 +440,10 @@ function format_task_pack(string $task_id, array $step): string
     $file_allowlist = normalize_string_list($step['file_allowlist'] ?? []);
     $command_allowlist = normalize_string_list($step['command_allowlist'] ?? []);
     $contract_policy = trim((string) ($step['contract_change_policy'] ?? ''));
+    $split_policy = trim((string) ($step['split_policy'] ?? ''));
+    if ($split_policy === '') {
+        $split_policy = 'single';
+    }
 
     $relevant = $step['relevant_contracts'] ?? [];
     $api_refs = normalize_string_list(is_array($relevant) ? ($relevant['api'] ?? []) : []);
@@ -505,6 +509,9 @@ function format_task_pack(string $task_id, array $step): string
     $lines[] = '';
     $lines[] = '## Contract Change Policy';
     $lines[] = '- ' . ($contract_policy !== '' ? $contract_policy : 'Breaking changes require orchestrator approval.');
+    $lines[] = '';
+    $lines[] = '## Split Policy';
+    $lines[] = '- ' . $split_policy;
 
     return rtrim(implode("\n", $lines)) . "\n";
 }
@@ -639,12 +646,14 @@ You are the orchestrator. Output only valid JSON matching this schema:
       "contract_change_policy": "string",
       "constraints": ["string"],
       "file_allowlist": ["string"],
-      "command_allowlist": ["string"]
+      "command_allowlist": ["string"],
+      "split_policy": "single | subtasks"
     }
   ]
 }
 Rules: create as many steps as needed, keep steps small and logically separated, 2-6 acceptance criteria each.
 These steps will be handed to a module-owner for implementation; keep steps actionable and scoped.
+Split only when it makes sense (cross-module work, contract changes, or multi-component scope). Small changes should be "single".
 If a field is not needed, return an empty array or empty string for it.
 Repo memory files are the Single Source of Truth. Require updates to /tasks/ACTIVE.md, /tasks/*_taskpack.md,
 /tasks/*_result.md, and /contracts/* as needed.
@@ -987,6 +996,10 @@ function validate_plan(array $plan): array
         $verification = normalize_string_list($step['verification'] ?? []);
         $dependencies = normalize_string_list($step['dependencies'] ?? []);
         $contract_policy = trim((string) ($step['contract_change_policy'] ?? ''));
+        $split_policy = trim((string) ($step['split_policy'] ?? ''));
+        if (!in_array($split_policy, ['single', 'subtasks'], true)) {
+            $split_policy = 'single';
+        }
         $relevant = $step['relevant_contracts'] ?? [];
         if (!is_array($relevant)) {
             $relevant = [];
@@ -1007,6 +1020,7 @@ function validate_plan(array $plan): array
             'verification' => $verification,
             'dependencies' => $dependencies,
             'contract_change_policy' => $contract_policy,
+            'split_policy' => $split_policy,
             'constraints' => $constraints,
             'file_allowlist' => $file_allowlist,
             'command_allowlist' => $command_allowlist,
@@ -1440,6 +1454,7 @@ function process_job_ai(array $job, string $check_path): array
                 'title' => 'Implement request',
                 'goal' => 'Implement the request.',
                 'acceptance_criteria' => ['Requested changes are applied', 'No errors from tools'],
+                'split_policy' => 'single',
             ]];
         }
         write_plan($job_id, ['steps' => $plan_steps]);
@@ -1498,6 +1513,13 @@ function process_job_ai(array $job, string $check_path): array
             $step_scope = 'repo';
         }
         $step_index = (int) ($step_row['step_index'] ?? 0);
+        $split_policy = 'single';
+        if (isset($plan_steps_by_index[$step_index]['split_policy'])) {
+            $split_policy = (string) $plan_steps_by_index[$step_index]['split_policy'];
+        }
+        if (!in_array($split_policy, ['single', 'subtasks'], true)) {
+            $split_policy = 'single';
+        }
         $step = [
             'goal' => (string) ($step_row['goal'] ?? ''),
             'acceptance_criteria' => $criteria,
@@ -1505,6 +1527,7 @@ function process_job_ai(array $job, string $check_path): array
             'constraints' => $step_constraints,
             'file_allowlist' => $step_file_allowlist,
             'command_allowlist' => $step_command_allowlist,
+            'split_policy' => $split_policy,
         ];
         $plan_step = $plan_steps_by_index[$step_index] ?? $step;
         $task_info = ensure_task_pack_files($repo_root, $job_id, $step_index, $plan_step);
@@ -1529,16 +1552,31 @@ function process_job_ai(array $job, string $check_path): array
 
         $subtasks = list_subtasks($step_id);
         if (!$subtasks) {
-            $subtask_defs = [[
-                'title' => 'Module-owner implementation',
-                'instruction' => 'Implement the Task Pack at ' . $task_pack_path
-                    . ' and update the Result Pack at ' . $result_pack_path . '.',
-                'acceptance_criteria' => $step['acceptance_criteria'] ?? ['Changes applied', 'No errors'],
-                'scope' => $step['scope'] ?? 'repo',
-                'constraints' => $step['constraints'] ?? [],
-                'file_allowlist' => $step['file_allowlist'] ?? [],
-                'command_allowlist' => $step['command_allowlist'] ?? [],
-            ]];
+            if ($split_policy === 'subtasks') {
+                $dept_messages = dept_head_prompt(
+                    $request,
+                    $plan_step,
+                    $architecture_summary,
+                    $repo_summary,
+                    $repo_memory_block
+                );
+                $step_logger('module-owner: generating subtasks');
+                $dept_response = call_openai_chat($dept_messages, [], $models['module_owner']);
+                $dept_content = (string) ($dept_response['choices'][0]['message']['content'] ?? '');
+                $dept_payload = extract_json($dept_content);
+                $subtask_defs = validate_subtasks($dept_payload, $plan_step);
+            } else {
+                $subtask_defs = [[
+                    'title' => 'Module-owner implementation',
+                    'instruction' => 'Implement the Task Pack at ' . $task_pack_path
+                        . ' and update the Result Pack at ' . $result_pack_path . '.',
+                    'acceptance_criteria' => $step['acceptance_criteria'] ?? ['Changes applied', 'No errors'],
+                    'scope' => $step['scope'] ?? 'repo',
+                    'constraints' => $step['constraints'] ?? [],
+                    'file_allowlist' => $step['file_allowlist'] ?? [],
+                    'command_allowlist' => $step['command_allowlist'] ?? [],
+                ]];
+            }
             $created_subtasks = create_subtasks($job_id, $step_id, $subtask_defs);
             $step_logger('module-owner: created ' . $created_subtasks . ' subtask(s)');
             $subtasks = list_subtasks($step_id);
