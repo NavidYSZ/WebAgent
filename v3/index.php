@@ -479,9 +479,39 @@ declare(strict_types=1);
         return new URL(path, apiBaseUrl).toString();
       }
 
+      function nowStamp() {
+        return new Date().toISOString();
+      }
+
+      function logDebug(message, data) {
+        if (data !== undefined) {
+          console.debug(`[AgentOps][${nowStamp()}] ${message}`, data);
+          return;
+        }
+        console.debug(`[AgentOps][${nowStamp()}] ${message}`);
+      }
+
       async function fetchJson(url, options = {}) {
-        const res = await fetch(url, options);
-        return res.json();
+        const start = performance.now();
+        logDebug('fetch:start', { url, options });
+        let res;
+        try {
+          res = await fetch(url, options);
+        } catch (error) {
+          logDebug('fetch:error', { url, error: String(error) });
+          throw error;
+        }
+        const elapsedMs = Math.round(performance.now() - start);
+        logDebug('fetch:response', { url, status: res.status, ok: res.ok, elapsedMs });
+        let payload;
+        try {
+          payload = await res.json();
+        } catch (error) {
+          logDebug('fetch:json_error', { url, error: String(error) });
+          throw error;
+        }
+        logDebug('fetch:json', payload);
+        return payload;
       }
 
       function setSettingsOpen(open) {
@@ -673,6 +703,7 @@ declare(strict_types=1);
         activeSubtaskId = null;
         subtaskLogOffset = 0;
         activeJobLabel.textContent = `Active job: #${jobId} ${title}`;
+        logDebug('job:selected', { jobId, title });
         fetchLog(true);
         fetchPlan();
         fetchReport();
@@ -710,6 +741,7 @@ declare(strict_types=1);
         if (!pollingEnabled) {
           return;
         }
+        logDebug('log:poll', { jobId: activeJobId, offset: logOffset, force });
         const data = await fetchJson(
           apiUrl(`api.php?action=log&job_id=${activeJobId}&offset=${logOffset}`)
         );
@@ -728,6 +760,7 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !pollingEnabled) {
           return;
         }
+        logDebug('step_log:poll', { jobId: activeJobId, stepId: activeStepId, offset: stepLogOffset, force });
         const data = await fetchJson(
           apiUrl(`api.php?action=step_log&job_id=${activeJobId}&step_id=${activeStepId}&offset=${stepLogOffset}`)
         );
@@ -746,6 +779,13 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !activeSubtaskId || !pollingEnabled) {
           return;
         }
+        logDebug('subtask_log:poll', {
+          jobId: activeJobId,
+          stepId: activeStepId,
+          subtaskId: activeSubtaskId,
+          offset: subtaskLogOffset,
+          force,
+        });
         const data = await fetchJson(
           apiUrl(`api.php?action=subtask_log&job_id=${activeJobId}&step_id=${activeStepId}&subtask_id=${activeSubtaskId}&offset=${subtaskLogOffset}`)
         );
@@ -764,6 +804,7 @@ declare(strict_types=1);
         if (!pollingEnabled) {
           return;
         }
+        logDebug('worker_status:poll');
         const data = await fetchJson(apiUrl('api.php?action=worker_status'));
         if (data.status === 'online') {
           workerStatus.textContent = 'worker online';
@@ -832,6 +873,7 @@ declare(strict_types=1);
         if (!pollingEnabled || !activeJobId) {
           return;
         }
+        logDebug('steps:poll', { jobId: activeJobId });
         const data = await fetchJson(apiUrl(`api.php?action=steps&job_id=${activeJobId}`));
         renderSteps(data.steps || []);
       }
@@ -840,6 +882,7 @@ declare(strict_types=1);
         if (!pollingEnabled || !activeStepId) {
           return;
         }
+        logDebug('subtasks:poll', { stepId: activeStepId });
         const data = await fetchJson(apiUrl(`api.php?action=subtasks&step_id=${activeStepId}`));
         renderSubtasks(data.subtasks || []);
       }
@@ -874,6 +917,7 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !pollingEnabled) {
           return;
         }
+        logDebug('step_report:poll', { jobId: activeJobId, stepId: activeStepId });
         const data = await fetchJson(
           apiUrl(`api.php?action=step_report&job_id=${activeJobId}&step_id=${activeStepId}`)
         );
@@ -888,6 +932,11 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !activeSubtaskId || !pollingEnabled) {
           return;
         }
+        logDebug('subtask_report:poll', {
+          jobId: activeJobId,
+          stepId: activeStepId,
+          subtaskId: activeSubtaskId,
+        });
         const data = await fetchJson(
           apiUrl(`api.php?action=subtask_report&job_id=${activeJobId}&step_id=${activeStepId}&subtask_id=${activeSubtaskId}`)
         );
@@ -902,6 +951,7 @@ declare(strict_types=1);
         if (!activeJobId || !pollingEnabled) {
           return;
         }
+        logDebug('plan:poll', { jobId: activeJobId });
         const data = await fetchJson(apiUrl(`api.php?action=plan&job_id=${activeJobId}`));
         if (data.plan) {
           planOutput.textContent = JSON.stringify(data.plan, null, 2);
@@ -914,6 +964,7 @@ declare(strict_types=1);
         if (!activeJobId || !pollingEnabled) {
           return;
         }
+        logDebug('report:poll', { jobId: activeJobId });
         const data = await fetchJson(apiUrl(`api.php?action=report&job_id=${activeJobId}`));
         if (data.report) {
           reportOutput.textContent = JSON.stringify(data.report, null, 2);
@@ -1010,6 +1061,7 @@ declare(strict_types=1);
       }
 
       async function refreshCheckStatus() {
+        logDebug('check_status:poll');
         const data = await fetchJson(apiUrl('api.php?action=check_status'));
         if (typeof data.enabled === 'boolean') {
           checkStatusMsg.textContent = '';
@@ -1018,6 +1070,7 @@ declare(strict_types=1);
       }
 
       async function refreshDebugStatus() {
+        logDebug('debug_status:poll');
         const data = await fetchJson(apiUrl('api.php?action=debug_status'));
         if (typeof data.enabled === 'boolean') {
           setDebugStatus(data.enabled);
@@ -1040,6 +1093,7 @@ declare(strict_types=1);
           run_tests: runTestsToggle ? runTestsToggle.checked : false,
           request: document.getElementById('jobRequest').value.trim(),
         };
+        logDebug('job:create', payload);
         const data = await fetchJson(apiUrl('api.php?action=create_job'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1047,13 +1101,18 @@ declare(strict_types=1);
         });
 
         if (data.error) {
+          logDebug('job:create_error', data);
           formStatus.textContent = data.error;
           return;
         }
 
         formStatus.textContent = 'Job queued.';
         document.getElementById('jobRequest').value = '';
-        refreshJobs();
+        logDebug('job:queued', data.job || {});
+        setTimeout(() => {
+          logDebug('job:refresh_after_queue');
+          refreshJobs();
+        }, 3500);
         if (data.job) {
           selectJob(data.job.id, data.job.title);
         }
@@ -1098,6 +1157,7 @@ declare(strict_types=1);
         if (checkEnabled === null) {
           return;
         }
+        logDebug('check_status:toggle', { enabled: !checkEnabled });
         toggleCheck.disabled = true;
         checkStatusMsg.textContent = 'updating...';
         const data = await fetchJson(apiUrl('api.php?action=toggle_check'), {
@@ -1107,6 +1167,7 @@ declare(strict_types=1);
         });
         toggleCheck.disabled = false;
         if (data.error) {
+          logDebug('check_status:toggle_error', data);
           checkStatusMsg.textContent = data.error;
           return;
         }
@@ -1121,6 +1182,7 @@ declare(strict_types=1);
           if (debugEnabled === null) {
             return;
           }
+          logDebug('debug_status:toggle', { enabled: !debugEnabled });
           toggleDebug.disabled = true;
           debugStatusMsg.textContent = 'updating...';
           const data = await fetchJson(apiUrl('api.php?action=toggle_debug'), {
@@ -1130,6 +1192,7 @@ declare(strict_types=1);
           });
           toggleDebug.disabled = false;
           if (data.error) {
+            logDebug('debug_status:toggle_error', data);
             debugStatusMsg.textContent = data.error;
             return;
           }
