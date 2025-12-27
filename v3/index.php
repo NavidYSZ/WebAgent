@@ -473,9 +473,45 @@ declare(strict_types=1);
         failed: 'bg-rose-100 text-rose-700',
       };
 
+      const apiBaseUrl = new URL('.', window.location.href);
+
+      function apiUrl(path) {
+        return new URL(path, apiBaseUrl).toString();
+      }
+
+      function nowStamp() {
+        return new Date().toISOString();
+      }
+
+      function logDebug(message, data) {
+        if (data !== undefined) {
+          console.debug(`[AgentOps][${nowStamp()}] ${message}`, data);
+          return;
+        }
+        console.debug(`[AgentOps][${nowStamp()}] ${message}`);
+      }
+
       async function fetchJson(url, options = {}) {
-        const res = await fetch(url, options);
-        return res.json();
+        const start = performance.now();
+        logDebug('fetch:start', { url, options });
+        let res;
+        try {
+          res = await fetch(url, options);
+        } catch (error) {
+          logDebug('fetch:error', { url, error: String(error) });
+          throw error;
+        }
+        const elapsedMs = Math.round(performance.now() - start);
+        logDebug('fetch:response', { url, status: res.status, ok: res.ok, elapsedMs });
+        let payload;
+        try {
+          payload = await res.json();
+        } catch (error) {
+          logDebug('fetch:json_error', { url, error: String(error) });
+          throw error;
+        }
+        logDebug('fetch:json', payload);
+        return payload;
       }
 
       function setSettingsOpen(open) {
@@ -493,7 +529,7 @@ declare(strict_types=1);
         if (!settingsForm) {
           return;
         }
-        const data = await fetchJson('api.php?action=settings');
+        const data = await fetchJson(apiUrl('api.php?action=settings'));
         const models = (data.settings && data.settings.models) ? data.settings.models : {};
         const defaultModel = data.defaults ? data.defaults.model : '';
         const locked = Boolean(data.locked || (data.settings && data.settings.locked));
@@ -531,7 +567,7 @@ declare(strict_types=1);
           const input = settingsInputs[key];
           payload.models[key] = input ? input.value.trim() : '';
         });
-        const data = await fetchJson('api.php?action=update_settings', {
+        const data = await fetchJson(apiUrl('api.php?action=update_settings'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -635,7 +671,7 @@ declare(strict_types=1);
         if (!pollingEnabled) {
           return;
         }
-        const data = await fetchJson('api.php?action=jobs');
+        const data = await fetchJson(apiUrl('api.php?action=jobs'));
         renderJobs(data.jobs || []);
       }
 
@@ -643,7 +679,7 @@ declare(strict_types=1);
         if (!pollingEnabled) {
           return;
         }
-        const data = await fetchJson('api.php?action=repos');
+        const data = await fetchJson(apiUrl('api.php?action=repos'));
         renderRepos(data.repos || []);
         reposLoaded = true;
       }
@@ -667,6 +703,7 @@ declare(strict_types=1);
         activeSubtaskId = null;
         subtaskLogOffset = 0;
         activeJobLabel.textContent = `Active job: #${jobId} ${title}`;
+        logDebug('job:selected', { jobId, title });
         fetchLog(true);
         fetchPlan();
         fetchReport();
@@ -674,7 +711,7 @@ declare(strict_types=1);
       }
 
       async function deleteJob(jobId) {
-        const data = await fetchJson('api.php?action=delete_job', {
+        const data = await fetchJson(apiUrl('api.php?action=delete_job'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ job_id: jobId }),
@@ -693,7 +730,7 @@ declare(strict_types=1);
       }
 
       function downloadReport(jobId) {
-        const url = `api.php?action=download_report&job_id=${encodeURIComponent(jobId)}`;
+        const url = apiUrl(`api.php?action=download_report&job_id=${encodeURIComponent(jobId)}`);
         window.location = url;
       }
 
@@ -704,7 +741,10 @@ declare(strict_types=1);
         if (!pollingEnabled) {
           return;
         }
-        const data = await fetchJson(`api.php?action=log&job_id=${activeJobId}&offset=${logOffset}`);
+        logDebug('log:poll', { jobId: activeJobId, offset: logOffset, force });
+        const data = await fetchJson(
+          apiUrl(`api.php?action=log&job_id=${activeJobId}&offset=${logOffset}`)
+        );
         if (force && data.content) {
           logOutput.textContent = data.content;
         } else if (data.content) {
@@ -720,8 +760,9 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !pollingEnabled) {
           return;
         }
+        logDebug('step_log:poll', { jobId: activeJobId, stepId: activeStepId, offset: stepLogOffset, force });
         const data = await fetchJson(
-          `api.php?action=step_log&job_id=${activeJobId}&step_id=${activeStepId}&offset=${stepLogOffset}`
+          apiUrl(`api.php?action=step_log&job_id=${activeJobId}&step_id=${activeStepId}&offset=${stepLogOffset}`)
         );
         if (force && data.content) {
           stepLogOutput.textContent = data.content;
@@ -738,8 +779,15 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !activeSubtaskId || !pollingEnabled) {
           return;
         }
+        logDebug('subtask_log:poll', {
+          jobId: activeJobId,
+          stepId: activeStepId,
+          subtaskId: activeSubtaskId,
+          offset: subtaskLogOffset,
+          force,
+        });
         const data = await fetchJson(
-          `api.php?action=subtask_log&job_id=${activeJobId}&step_id=${activeStepId}&subtask_id=${activeSubtaskId}&offset=${subtaskLogOffset}`
+          apiUrl(`api.php?action=subtask_log&job_id=${activeJobId}&step_id=${activeStepId}&subtask_id=${activeSubtaskId}&offset=${subtaskLogOffset}`)
         );
         if (force && data.content) {
           subtaskLogOutput.textContent = data.content;
@@ -756,7 +804,8 @@ declare(strict_types=1);
         if (!pollingEnabled) {
           return;
         }
-        const data = await fetchJson('api.php?action=worker_status');
+        logDebug('worker_status:poll');
+        const data = await fetchJson(apiUrl('api.php?action=worker_status'));
         if (data.status === 'online') {
           workerStatus.textContent = 'worker online';
           workerStatus.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700';
@@ -824,7 +873,8 @@ declare(strict_types=1);
         if (!pollingEnabled || !activeJobId) {
           return;
         }
-        const data = await fetchJson(`api.php?action=steps&job_id=${activeJobId}`);
+        logDebug('steps:poll', { jobId: activeJobId });
+        const data = await fetchJson(apiUrl(`api.php?action=steps&job_id=${activeJobId}`));
         renderSteps(data.steps || []);
       }
 
@@ -832,7 +882,8 @@ declare(strict_types=1);
         if (!pollingEnabled || !activeStepId) {
           return;
         }
-        const data = await fetchJson(`api.php?action=subtasks&step_id=${activeStepId}`);
+        logDebug('subtasks:poll', { stepId: activeStepId });
+        const data = await fetchJson(apiUrl(`api.php?action=subtasks&step_id=${activeStepId}`));
         renderSubtasks(data.subtasks || []);
       }
 
@@ -866,8 +917,9 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !pollingEnabled) {
           return;
         }
+        logDebug('step_report:poll', { jobId: activeJobId, stepId: activeStepId });
         const data = await fetchJson(
-          `api.php?action=step_report&job_id=${activeJobId}&step_id=${activeStepId}`
+          apiUrl(`api.php?action=step_report&job_id=${activeJobId}&step_id=${activeStepId}`)
         );
         if (data.report) {
           stepReportOutput.textContent = JSON.stringify(data.report, null, 2);
@@ -880,8 +932,13 @@ declare(strict_types=1);
         if (!activeJobId || !activeStepId || !activeSubtaskId || !pollingEnabled) {
           return;
         }
+        logDebug('subtask_report:poll', {
+          jobId: activeJobId,
+          stepId: activeStepId,
+          subtaskId: activeSubtaskId,
+        });
         const data = await fetchJson(
-          `api.php?action=subtask_report&job_id=${activeJobId}&step_id=${activeStepId}&subtask_id=${activeSubtaskId}`
+          apiUrl(`api.php?action=subtask_report&job_id=${activeJobId}&step_id=${activeStepId}&subtask_id=${activeSubtaskId}`)
         );
         if (data.report) {
           subtaskReportOutput.textContent = JSON.stringify(data.report, null, 2);
@@ -894,7 +951,8 @@ declare(strict_types=1);
         if (!activeJobId || !pollingEnabled) {
           return;
         }
-        const data = await fetchJson(`api.php?action=plan&job_id=${activeJobId}`);
+        logDebug('plan:poll', { jobId: activeJobId });
+        const data = await fetchJson(apiUrl(`api.php?action=plan&job_id=${activeJobId}`));
         if (data.plan) {
           planOutput.textContent = JSON.stringify(data.plan, null, 2);
         } else if (data.error) {
@@ -906,7 +964,8 @@ declare(strict_types=1);
         if (!activeJobId || !pollingEnabled) {
           return;
         }
-        const data = await fetchJson(`api.php?action=report&job_id=${activeJobId}`);
+        logDebug('report:poll', { jobId: activeJobId });
+        const data = await fetchJson(apiUrl(`api.php?action=report&job_id=${activeJobId}`));
         if (data.report) {
           reportOutput.textContent = JSON.stringify(data.report, null, 2);
         } else if (data.error) {
@@ -1002,7 +1061,8 @@ declare(strict_types=1);
       }
 
       async function refreshCheckStatus() {
-        const data = await fetchJson('api.php?action=check_status');
+        logDebug('check_status:poll');
+        const data = await fetchJson(apiUrl('api.php?action=check_status'));
         if (typeof data.enabled === 'boolean') {
           checkStatusMsg.textContent = '';
           setCheckStatus(data.enabled, data.exists);
@@ -1010,7 +1070,8 @@ declare(strict_types=1);
       }
 
       async function refreshDebugStatus() {
-        const data = await fetchJson('api.php?action=debug_status');
+        logDebug('debug_status:poll');
+        const data = await fetchJson(apiUrl('api.php?action=debug_status'));
         if (typeof data.enabled === 'boolean') {
           setDebugStatus(data.enabled);
         }
@@ -1032,20 +1093,26 @@ declare(strict_types=1);
           run_tests: runTestsToggle ? runTestsToggle.checked : false,
           request: document.getElementById('jobRequest').value.trim(),
         };
-        const data = await fetchJson('api.php?action=create_job', {
+        logDebug('job:create', payload);
+        const data = await fetchJson(apiUrl('api.php?action=create_job'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
 
         if (data.error) {
+          logDebug('job:create_error', data);
           formStatus.textContent = data.error;
           return;
         }
 
         formStatus.textContent = 'Job queued.';
         document.getElementById('jobRequest').value = '';
-        refreshJobs();
+        logDebug('job:queued', data.job || {});
+        setTimeout(() => {
+          logDebug('job:refresh_after_queue');
+          refreshJobs();
+        }, 3500);
         if (data.job) {
           selectJob(data.job.id, data.job.title);
         }
@@ -1090,15 +1157,17 @@ declare(strict_types=1);
         if (checkEnabled === null) {
           return;
         }
+        logDebug('check_status:toggle', { enabled: !checkEnabled });
         toggleCheck.disabled = true;
         checkStatusMsg.textContent = 'updating...';
-        const data = await fetchJson('api.php?action=toggle_check', {
+        const data = await fetchJson(apiUrl('api.php?action=toggle_check'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ enabled: !checkEnabled }),
         });
         toggleCheck.disabled = false;
         if (data.error) {
+          logDebug('check_status:toggle_error', data);
           checkStatusMsg.textContent = data.error;
           return;
         }
@@ -1113,15 +1182,17 @@ declare(strict_types=1);
           if (debugEnabled === null) {
             return;
           }
+          logDebug('debug_status:toggle', { enabled: !debugEnabled });
           toggleDebug.disabled = true;
           debugStatusMsg.textContent = 'updating...';
-          const data = await fetchJson('api.php?action=toggle_debug', {
+          const data = await fetchJson(apiUrl('api.php?action=toggle_debug'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled: !debugEnabled }),
           });
           toggleDebug.disabled = false;
           if (data.error) {
+            logDebug('debug_status:toggle_error', data);
             debugStatusMsg.textContent = data.error;
             return;
           }
